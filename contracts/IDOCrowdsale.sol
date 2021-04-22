@@ -540,6 +540,9 @@ library SafeERC20 {
     function safeTransfer(IToken token, address to, uint256 value) internal {
         _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
     }
+    function safeTransferFrom(IToken token, address from,  address to, uint256 value) internal {
+        _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, from, to, value));
+    }
     function _callOptionalReturn(IToken token, bytes memory data) private {
       bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
       if (returndata.length > 0) {
@@ -619,8 +622,10 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   uint256 public tier4Time;
   uint256 public tier5Time;
   uint256 public mainSale;
+  uint256 public saleEnds;
   
   uint256 public timePaused;
+  uint256 public timeIDOEnded;
 
   // EVENTS
   event Deposited(address indexed _sender, uint256 indexed _amount);
@@ -675,6 +680,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     require ( block.timestamp > tier1Time );
     require ( msg.value > minimumPurchase );
     require ( canDeposit == true );
+    require ( block.timestamp < saleEnds );
 
     uint256 amount = msg.value;
 
@@ -702,14 +708,18 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   * 5. Tier 6 = <50 @ base alloc
   **/
   function _computeTokenShareForPreSale(address _beneficiary, uint256 _amount) internal {
-    uint256 _tierBalance = tierToken.balanceOf(_beneficiary).div(10 ** tierToken.decimals());
+   // uint256 _tierBalance = tierToken.balanceOf(_beneficiary).div(10 ** tierToken.decimals());
    // uint256 _lpBalance = lpToken.balanceOf(_beneficiary).div(10 ** lpToken.decimals());
 
+    IDOManager _manager = IDOManager( owner() );
+    uint tierLevel = _manager.userTierLevel ( _beneficiary );
+    
+    
     // Starts at Tier 5
     uint8 currentTier;
-    uint256 tierRate;
+    //uint256 tierRate;
     uint256 shares = _amount.mul(rate);
-
+    /*
     // Tier 1
     if ( checkTier1( _beneficiary ) ) {
       tierRate = 6;
@@ -731,17 +741,46 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     } else if (_tierBalance >= 50 && _tierBalance < 100 && block.timestamp >= tier5Time) { // tier 4
       tierRate = 1;
       currentTier = 5;
-    } else if (teamMembers[_beneficiary]) {
-         tierRate = 6;
-         currentTier = 1;
-    } else {
+    }  else {
         revert('Unauthorized Transaction - Main Sale Only');
     } 
 
     // all team members should be at tier 1
+    */
+    
+    
+    // Tier 1
+    if ( tierLevel == 1 ) {
+     
+      currentTier = 1;
+      shares = _amount.mul((rate*103)/100);
+    // Tier 2
+    } else if ( tierLevel == 2 && block.timestamp >= tier2Time) { // tier 2
+    
+      currentTier = 2;
+    // Tier 3
+    } else if ( tierLevel == 3 && block.timestamp >= tier3Time) { // tier 3
+    
+      currentTier = 3;
+    // Tier 4
+    } else if ( tierLevel == 4 && block.timestamp >= tier4Time) { // tier 4
+     
+      currentTier = 4;
+    // Tier 5
+    } else if ( tierLevel == 2 && block.timestamp >= tier5Time) { // tier 5
+    
+      currentTier = 5;
+    }  else {
+        revert('Unauthorized Transaction - Main Sale Only');
+    } 
+
+    
+    
     
 
-    require ( _amount  <=  getMaxBNBSend ( currentTier) + tokenShares[ _beneficiary ] );
+    require ( _amount  <=  getMaxBNBSend ( currentTier).sub (deposits[_beneficiary ]) );
+    require ( shares + tokenShares[_beneficiary] <= getMaxTierAllocation(tierLevel ) );
+    
     require( currentTier < 6, 'No Tier Token or LP Balance');
 
     // only tier 1 - 4 can have bonus
@@ -757,7 +796,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     tokens = tokens.add(shares);
     emit TokenAllocated(_beneficiary, shares);
   }
-
+ /*
   function computeTier(address _beneficiary, uint256 _amount) public view returns(uint8 tierRate, uint8 currentTier, uint256 tierBalance,  uint256 shares) {
     tierBalance = tierToken.balanceOf(_beneficiary).div(10 ** tierToken.decimals());
     //lpBalance = lpToken.balanceOf(_beneficiary).div(10 ** lpToken.decimals());
@@ -795,7 +834,44 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     //  shares = shares.add(shares.mul(tierRate).div(100));
     //}
   }
+  */
+  
+  function computeTier(address _beneficiary, uint256 _amount) public view returns(uint8 currentTier,   uint256 shares) {
+     IDOManager _manager = IDOManager( owner() );
+    uint tierLevel = _manager.userTierLevel ( _beneficiary );
+    
+    
+    
+    // Tier 1
+    if ( tierLevel == 1 ) {
+     
+      currentTier = 1;
+      shares = _amount.mul((rate*103)/100);
+      
+    // Tier 2
+    } else if ( tierLevel == 2 && block.timestamp >= tier2Time) { // tier 2
+    
+      currentTier = 2;
+    // Tier 3
+    } else if ( tierLevel == 3 && block.timestamp >= tier3Time) { // tier 3
+    
+      currentTier = 3;
+    // Tier 4
+    } else if ( tierLevel == 4 && block.timestamp >= tier4Time) { // tier 4
+     
+      currentTier = 4;
+    // Tier 5
+    } else if ( tierLevel == 2 && block.timestamp >= tier5Time) { // tier 5
+    
+      currentTier = 5;
+    }  else {
+        revert('Unauthorized Transaction - Main Sale Only');
+    } 
 
+    
+  }
+
+  
   function _computeTokenShareForSale(address _beneficiary, uint256 _amount) internal {
     uint256 shares = _amount.mul(rate);
     tokenShares[_beneficiary] += shares;
@@ -809,6 +885,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   function startSale( uint256 utctime ) public onlyManagers {
     require ( utctime > block.timestamp  );
     require ( baseAllocation > 0 );
+    require ( getIDOContractTokenBalance() > 100000000000000000000, "IDO Contract needs IDO Tokens");
     setSchedule ( utctime );
     canDeposit = true;
     canRefund = false;
@@ -819,19 +896,17 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   
   function setSchedule( uint256 utctime ) internal {
       
-     mainSale = utctime + 3 hours;
+     mainSale  = utctime + 3 hours;
      tier1Time = utctime;
      tier2Time = utctime + 1 hours;
      tier3Time = utctime + 1 hours + 30 minutes;
      tier4Time = utctime + 2 hours;
      tier5Time = utctime + 2 hours + 30 minutes;
+     saleEnds  = utctime + 24 hours;
       
       
   }
  
-  
-  
-  
   
   function getCurrentUTCTime() public view returns ( uint256 ) {
       return block.timestamp;
@@ -857,25 +932,25 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   
   function getMaxTierAllocation ( uint256 _tier ) public view returns ( uint256 ){
       require ( _tier > 0 );
-      if ( _tier == 1 ) return (((6600 * baseAllocation)/1000)*1000000000000000000);
-      if ( _tier == 2 ) return (((4400 * baseAllocation)/1000)*1000000000000000000);
-      if ( _tier == 3 ) return (((3300 * baseAllocation)/1000)*1000000000000000000);
-      if ( _tier == 4 ) return (((2300 * baseAllocation)/1000)*1000000000000000000);
-      if ( _tier == 5 ) return (((1000 * baseAllocation)/1000)*1000000000000000000);
-      return ((1 * baseAllocation)*1000000000000000000);
+      if ( _tier == 1 ) return (((6600 * baseAllocation)/1000));
+      if ( _tier == 2 ) return (((4400 * baseAllocation)/1000));
+      if ( _tier == 3 ) return (((3300 * baseAllocation)/1000));
+      if ( _tier == 4 ) return (((2300 * baseAllocation)/1000));
+      if ( _tier == 5 ) return (((1000 * baseAllocation)/1000));
+      return ((1 * baseAllocation));
   }
   
   function getMaxBNBSend ( uint256 _tier ) public view returns ( uint256 ){
       require ( _tier > 0 );
-      if ( _tier == 1 ) return (((6600 * baseAllocation)/1000)/rate*1000000000000000000);
-      if ( _tier == 2 ) return (((4400 * baseAllocation)/1000)/rate*1000000000000000000);
-      if ( _tier == 3 ) return (((3300 * baseAllocation)/1000)/rate*1000000000000000000);
-      if ( _tier == 4 ) return (((2300 * baseAllocation)/1000)/rate*1000000000000000000);
-      if ( _tier == 5 ) return (((1000 * baseAllocation)/1000)/rate*1000000000000000000);
-      return ((1 * baseAllocation/rate)*1000000000000000000);
+      if ( _tier == 1 ) return (((6600 * baseAllocation)/1000)/(rate*103/100));
+      if ( _tier == 2 ) return (((4400 * baseAllocation)/1000)/rate);
+      if ( _tier == 3 ) return (((3300 * baseAllocation)/1000)/rate);
+      if ( _tier == 4 ) return (((2300 * baseAllocation)/1000)/rate);
+      if ( _tier == 5 ) return (((1000 * baseAllocation)/1000)/rate);
+      return ((1 * baseAllocation/rate));
   }
   
-  function getIDOContractTokenBalance() public view returns ( uint256 ){
+  function getIDOContractTokenBalance() public view  returns ( uint256 ){
       
       return token.balanceOf(address(this));
   }
@@ -883,7 +958,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   function checkTier1( address _beneficiary ) public view returns ( bool ){
       
       IDOManager _manager = IDOManager( owner() );
-      return ( _manager.isUserStaked ( _beneficiary ) || teamMembers[_beneficiary] );
+      return ( _manager.doesUserHaveLPStaked ( _beneficiary ) || teamMembers[_beneficiary] );
       
       
   }
@@ -892,40 +967,53 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     // Defaults to IDO did not start yet
     uint8 currentTier = 0; 
     
-       // Tier 1
-    if (  block.timestamp >= tier1Time ) {
+       // Tier Paused
+    if (  tier1Time == 8888888888 ) {
      
-      currentTier = 1;
-   
-    // Tier 2
-    } else if ( block.timestamp >= tier2Time) { // tier 2
+      currentTier = 255;// IDO is paused
+     // Tier Mainsale
+    } else if ( tier1Time == 0) { // tier 2
      
-      currentTier = 2;
-    // Tier 3
-    } else if ( block.timestamp >= tier3Time) { // tier 2
+      currentTier = 0;
+    // Tier 5
+    } else if ( block.timestamp >= mainSale) { // tier 2
      
-      currentTier = 3;
+      currentTier = 6;
+    // Tier 5
+    } else if ( block.timestamp >= tier5Time) { // tier 2
+     
+      currentTier = 5;
     // Tier 4
     } else if ( block.timestamp >= tier4Time) { // tier 3
      
       currentTier = 4;
-    // Tier 5
-    } else if (  block.timestamp >= tier5Time) { // tier 4
+    // Tier 3
+    } else if (  block.timestamp >= tier3Time) { // tier 4
      
-      currentTier = 5;
-    } else if ( block.timestamp >= mainSale ) {
+      currentTier = 3;
+      // Tier 2
+    } else if ( block.timestamp >= tier2Time ) {
          
-         currentTier = 6;
-    } else if ( tier1Time == 8888888888 ) {
+      currentTier = 2;
+      // Tier 1
+    } else if ( block.timestamp >= tier1Time ) {
          
-         currentTier = 255; // IDO is Paused
+      currentTier = 1; 
     } 
       
     return currentTier;
       
   }
   
+  function availableAllocationLeft ( address _user ) public view returns ( uint256 ){
+      IDOManager _manager = IDOManager( owner() );
+      return getMaxTierAllocation ( _manager.userTierLevel ( _user )).sub(tokenShares [_user]) ; 
+  }
   
+  function availableAllocationLeftinBNB ( address _user ) public view returns ( uint256 ){
+      IDOManager _manager = IDOManager( owner() );
+      return getMaxBNBSend ( _manager.userTierLevel ( _user )).sub( deposits [_user])  ; 
+  }
 
   function pauseSale() public onlyManagers {
     require ( stage == SaleStage.SALE );
@@ -961,6 +1049,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     canRefund = false;
     computeDistribution();
     stage = SaleStage.FINALIZED;
+    if ( block.timestamp < saleEnds ) {timeIDOEnded = block.timestamp; } else timeIDOEnded = saleEnds ;
     emit StatusChanged(stage);
     issuerLock = block.timestamp + (1 days * 365); // total of 1 year
   }
@@ -1061,12 +1150,13 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
 
   // issuer can deposit anytime
   function issuerDeposit(IToken _token, uint256 _amount) public onlyIssuer {
-    _token.safeTransfer(address(this), _amount);
+    _token.transferFrom( msg.sender, address(this), _amount);
   }
 
   // issuer can withdraw / emergency withdraw tokens if the the contract is shut off
   // issuer can withdraw if the holders can refund
   function issuerClaim(IToken _token, uint256 _amount) public onlyIssuer {
+    require( canRefund );
     _token.safeTransfer(msg.sender, _amount);
   }
 
@@ -1080,16 +1170,16 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
       issuerWithdrawn = true;
     }
     // after a year
-    if (block.timestamp >= issuerLock) {
-      _sendValue(payable(issuer), address(this).balance);
-    }
+    // if (block.timestamp >= issuerLock) {
+    //  _sendValue(payable(issuer), address(this).balance);
+    //}
   }
 
   // burn tokens
-  function issuerBurn(address _burnAddress, uint256 _amount) public onlyIssuer {
+  function issuerBurn( uint256 _amount) public onlyIssuer {
     require(claimed >= tokens, 'Issuer Cannot Burn Token < Claimed');
-    token.safeTransfer(_burnAddress, _amount);
-  }
+    token.safeTransfer( 0x0000000000000000000000000000000000000000, _amount);
+  }                     
 
   function _sendValue(address payable recipient, uint256 amount) internal {
     require(address(this).balance >= amount, 'Insufficient Balance');
@@ -1102,6 +1192,10 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
 
 
 contract IDOManager is Ownable {
+    
+  using SafeERC20 for IToken;
+  using SafeMath for uint256;
+
 
   event ContractCreated(address indexed);
 
@@ -1109,6 +1203,7 @@ contract IDOManager is Ownable {
   address[] public team;
   uint256 public teamCount;
   bool public tokensSet;
+  bool public teamSet;
 
   address public lpaddress;
   IToken public lpToken;
@@ -1123,8 +1218,12 @@ contract IDOManager is Ownable {
   
   IToken public token;
     //address public vltbnb_token;
-   mapping ( address => uint256 ) public stakedAmount;
-    
+   mapping ( address => uint256 ) public stakedAmountLP;
+   mapping ( address => uint256 ) public stakedTimeLP;
+   mapping ( address => uint256 ) public stakedAmountVLT;
+   mapping ( address => uint256 ) public stakedTimeVLT;
+   uint256 public lastIDODeployedTime; 
+   uint256 public minimumVLTLockTime;
    uint256 public minimumLP;
 
   struct ContractDetails {
@@ -1138,16 +1237,27 @@ contract IDOManager is Ownable {
 
 
 
-
+  constructor() {
+      
+      minimumLP = 46000000000000000000;
+      lpaddress = 0x1ef932e9574542BC2730c6DC5Fa0003023c62b5e;
+      tierToken = IToken(0xda8336cc6A4C37e69d539BFA5Da1B3499f376162);
+      lpToken = IToken(0x451f70056FfdCBe4F4Db04d717DAE818054C0688);
+      tokensSet = true;
+      team = [0x0509A3053C83F55c88DBc726eb29A19972f29A36,0xf2b90042164e84A4f9599c8948d63A8DED7d29c1];
+      teamCount = team.length;
+      teamSet = true;
+      minimumVLTLockTime = 6 minutes;
+  }
 
 
   // deploy the ido contract
   function deployIDO(string memory _name, address _issuer, address _manager, uint256 _rate, uint256 _baseAllocation, IToken _idotoken, uint256 _minimumPurchase, uint8 _version) public onlyTeam returns(address) {
 
-    require ( tokensSet );
+    require ( tokensSet && teamSet );
     
     
-    IDOCrowdsale newIDO = new IDOCrowdsale(_issuer, _manager, _rate , tierToken, lpToken, lpaddress, _baseAllocation, _idotoken, _minimumPurchase  );
+    IDOCrowdsale newIDO = new IDOCrowdsale(_issuer, _manager, _rate , tierToken, lpToken, lpaddress, _baseAllocation*1000000000000000000, _idotoken, _minimumPurchase  );
 
     newIDO.setManager(manager, true);
     newIDO.setDist(teamPerc, liquidityPerc, issuerPerc, tokenWeight);
@@ -1158,6 +1268,7 @@ contract IDOManager is Ownable {
     contracts[_newIDOAddress] = ContractDetails(_name, _issuer, _version);
     contractAddresses[contractCount] = _newIDOAddress;
     contractCount++;
+    lastIDODeployedTime = block.timestamp;
     return _newIDOAddress;
   }
 
@@ -1194,6 +1305,7 @@ contract IDOManager is Ownable {
   function setTeam(address[] memory _team) public onlyOwner {
     team = _team;
     teamCount = _team.length;
+    teamSet = true;
   }
   
   function getTeam()public view returns( address  [] memory){
@@ -1211,10 +1323,10 @@ contract IDOManager is Ownable {
      * @dev deposit LP Tokens
      * @param _lptokens value to store
      */
-    function deposit(uint256 _lptokens) public {
+    function depositLP(uint256 _lptokens) public {
         
         require ( _lptokens >= minimumLP );
-        stakedAmount [ msg.sender ] += _lptokens;
+        stakedAmountLP [ msg.sender ] += _lptokens;
         lpToken.transferFrom( msg.sender , address(this), _lptokens );
         
     }
@@ -1222,19 +1334,73 @@ contract IDOManager is Ownable {
     /**
      * @dev Withdraw LP Tokens 
      */
-    function withdrawal() public {
-        uint256 withdrawalamount = stakedAmount [ msg.sender ];
-        stakedAmount [ msg.sender ] = 0;
-        lpToken.transfer ( msg.sender , withdrawalamount );
+    function withdrawLP() public {
+        uint256 withdrawalamount = stakedAmountLP [ msg.sender ];
+        stakedAmountLP [ msg.sender ] = 0;
+        lpToken.safeTransfer ( msg.sender , withdrawalamount );
     }
     
-    function isUserStaked( address _user ) public view returns ( bool ){
-        
-        if ( stakedAmount[ _user] >0 ) {return true;} else { return false; }
-        
+    function doesUserHaveLPStaked( address _user ) public view returns ( bool ){
+        if ( stakedAmountLP[ _user] >0 ) {return true;} else { return false; }
     }
 
-  modifier onlyTeam() {
+      /**
+     * @dev deposit VLT Tokens
+     * @param _amount value to store
+     */
+    function depositVLT(uint256 _amount) public {
+        stakedAmountVLT [ msg.sender ] += _amount;
+        if ( stakedTimeVLT [ msg.sender ] == 0 ) stakedTimeVLT [ msg.sender ] = block.timestamp; 
+        tierToken.transferFrom( msg.sender , address(this), _amount );
+    }
+
+    /**
+     * @dev Withdraw VLT Tokens 
+     */
+    function withdrawVLT() public {
+        
+        uint256 withdrawalamount = stakedAmountVLT [ msg.sender ];
+        stakedAmountVLT [ msg.sender ] = 0;
+        stakedTimeVLT[ msg.sender ] = 0;
+        tierToken.safeTransfer ( msg.sender , withdrawalamount );
+    }
+    
+    function userTierLevel( address _user ) public view returns ( uint8 ){
+        
+        if ( doesUserHaveLPStaked( _user ) || isTeamMember( _user ) ) return 1;
+        if ( stakedTimeVLT[ _user ] == 0 ) return 6;   
+        if ( stakedTimeVLT[ _user ] + minimumVLTLockTime > lastIDODeployedTime ) return 6;   
+        if ( stakedAmountVLT[ _user] < 100000000000000000000 && stakedAmountVLT[ _user] >=50000000000000000000   ) return 5;
+        if ( stakedAmountVLT[ _user] < 150000000000000000000 && stakedAmountVLT[ _user] >=100000000000000000000  ) return 4;
+        if ( stakedAmountVLT[ _user] < 200000000000000000000 && stakedAmountVLT[ _user] >=150000000000000000000  ) return 3;
+        if ( stakedAmountVLT[ _user] >= 200000000000000000000  ) return 2;
+        return 6;
+    }
+    
+    function userDepositTierLevel( address _user ) public view returns ( uint8 , uint256 ){
+        
+      
+        uint256 timeSinceDeposit = block.timestamp.sub(stakedTimeVLT[ _user ]);
+        
+        if ( doesUserHaveLPStaked( _user ) || isTeamMember( _user ) ) return (1,0);
+        if ( stakedAmountVLT[ _user] < 100000000000000000000 && stakedAmountVLT[ _user] >=50000000000000000000   ) return (5, timeSinceDeposit );
+        if ( stakedAmountVLT[ _user] < 150000000000000000000 && stakedAmountVLT[ _user] >=100000000000000000000  ) return (4, timeSinceDeposit );
+        if ( stakedAmountVLT[ _user] < 200000000000000000000 && stakedAmountVLT[ _user] >=150000000000000000000  ) return (3, timeSinceDeposit );
+        if ( stakedAmountVLT[ _user] >= 200000000000000000000  ) return (2,timeSinceDeposit);
+        return (6,0);
+    }
+
+    function isTeamMember( address _user ) public view returns ( bool ){
+        
+        for( uint i=0; i<teamCount ; i++){
+         if( team[i] == _user ) return true;
+        }
+        
+        return false;
+    }
+
+  
+    modifier onlyTeam() {
      
      bool team_member = false;
      for( uint i=0; i<teamCount ; i++){
