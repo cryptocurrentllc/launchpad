@@ -17,51 +17,26 @@ abstract contract Ownable is Context {
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-    /**
-     * @dev Initializes the contract setting the deployer as the initial owner.
-     */
     constructor () {
         address msgSender = _msgSender();
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
     }
 
-    /**
-     * @dev Returns the address of the current owner.
-     */
     function owner() public view virtual returns (address) {
         return _owner;
     }
 
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
     modifier onlyOwner() {
         require(owner() == _msgSender(), "Ownable: caller is not the owner");
         _;
     }
-    
-     /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    
 
-    /**
-     * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
-     *
-     * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
-     */
     function renounceOwnership() public virtual onlyOwner {
         emit OwnershipTransferred(_owner, address(0));
         _owner = address(0);
     }
 
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
-     */
     function transferOwnership(address newOwner) public virtual onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         emit OwnershipTransferred(_owner, newOwner);
@@ -69,6 +44,48 @@ abstract contract Ownable is Context {
     }
 }
 
+library SafeMath {
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a + b;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a - b;
+    }
+
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a * b;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a / b;
+    }
+
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a % b;
+    }
+
+    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        unchecked {
+            require(b <= a, errorMessage);
+            return a - b;
+        }
+    }
+
+    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        unchecked {
+            require(b > 0, errorMessage);
+            return a / b;
+        }
+    }
+
+    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        unchecked {
+            require(b > 0, errorMessage);
+            return a % b;
+        }
+    }
+}
 
 interface IToken {
     function decimals() external pure returns (uint256);
@@ -82,72 +99,22 @@ interface IToken {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-
 interface IIDOCrowdsale {
-  // set the token and rate
   function setSetting(IToken token, IToken tierToken, IToken _lpToken, uint256 rate, address issuer, address lp) external;
-
-  // set the sale distribution
   function setDist(uint8 teamPerc, uint8 liquidityPerc, uint8 issuerPerc, uint8 tokenWeight) external;
-
-  // set the managers enable/disable
   function setManager(address manager, bool status) external;
-
-  // add team members
   function addTeam(address[] memory addresses) external;
-
-  // finalized the sale and compute distributions
-  // function finalizeSale() external returns(bool);
-
-  // distribute funds
-  // function distributeFunds() external returns(bool);
 }
 
 library Address {
-    /**
-     * @dev Returns true if `account` is a contract.
-     *
-     * [IMPORTANT]
-     * ====
-     * It is unsafe to assume that an address for which this function returns
-     * false is an externally-owned account (EOA) and not a contract.
-     *
-     * Among others, `isContract` will return false for the following
-     * types of addresses:
-     *
-     *  - an externally-owned account
-     *  - a contract in construction
-     *  - an address where a contract will be created
-     *  - an address where a contract lived, but was destroyed
-     * ====
-     */
-    function isContract(address account) internal view returns (bool) {
-        // This method relies on extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
 
+    function isContract(address account) internal view returns (bool) {
         uint256 size;
         // solhint-disable-next-line no-inline-assembly
         assembly { size := extcodesize(account) }
         return size > 0;
     }
 
-    /**
-     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to
-     * `recipient`, forwarding all available gas and reverting on errors.
-     *
-     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost
-     * of certain opcodes, possibly making contracts go over the 2300 gas limit
-     * imposed by `transfer`, making them unable to receive funds via
-     * `transfer`. {sendValue} removes this limitation.
-     *
-     * https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/[Learn more].
-     *
-     * IMPORTANT: because control is transferred to `recipient`, care must be
-     * taken to not create reentrancy vulnerabilities. Consider using
-     * {ReentrancyGuard} or the
-     * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
-     */
     function sendValue(address payable recipient, uint256 amount) internal {
         require(address(this).balance >= amount, "Address: insufficient balance");
 
@@ -156,113 +123,24 @@ library Address {
         require(success, "Address: unable to send value, recipient may have reverted");
     }
 
-    /**
-     * @dev Performs a Solidity function call using a low level `call`. A
-     * plain`call` is an unsafe replacement for a function call: use this
-     * function instead.
-     *
-     * If `target` reverts with a revert reason, it is bubbled up by this
-     * function (like regular Solidity function calls).
-     *
-     * Returns the raw returned data. To convert to the expected return value,
-     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].
-     *
-     * Requirements:
-     *
-     * - `target` must be a contract.
-     * - calling `target` with `data` must not revert.
-     *
-     * _Available since v3.1._
-     */
     function functionCall(address target, bytes memory data) internal returns (bytes memory) {
       return functionCall(target, data, "Address: low-level call failed");
     }
 
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with
-     * `errorMessage` as a fallback revert reason when `target` reverts.
-     *
-     * _Available since v3.1._
-     */
     function functionCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
         return functionCallWithValue(target, data, 0, errorMessage);
     }
 
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
-     * but also transferring `value` wei to `target`.
-     *
-     * Requirements:
-     *
-     * - the calling contract must have an ETH balance of at least `value`.
-     * - the called Solidity function must be `payable`.
-     *
-     * _Available since v3.1._
-     */
     function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
         return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
     }
 
-    /**
-     * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but
-     * with `errorMessage` as a fallback revert reason when `target` reverts.
-     *
-     * _Available since v3.1._
-     */
     function functionCallWithValue(address target, bytes memory data, uint256 value, string memory errorMessage) internal returns (bytes memory) {
         require(address(this).balance >= value, "Address: insufficient balance for call");
         require(isContract(target), "Address: call to non-contract");
 
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returndata) = target.call{ value: value }(data);
-        return _verifyCallResult(success, returndata, errorMessage);
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
-     * but performing a static call.
-     *
-     * _Available since v3.3._
-     */
-    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
-        return functionStaticCall(target, data, "Address: low-level static call failed");
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
-     * but performing a static call.
-     *
-     * _Available since v3.3._
-     */
-    function functionStaticCall(address target, bytes memory data, string memory errorMessage) internal view returns (bytes memory) {
-        require(isContract(target), "Address: static call to non-contract");
-
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.staticcall(data);
-        return _verifyCallResult(success, returndata, errorMessage);
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
-     * but performing a delegate call.
-     *
-     * _Available since v3.4._
-     */
-    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {
-        return functionDelegateCall(target, data, "Address: low-level delegate call failed");
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
-     * but performing a delegate call.
-     *
-     * _Available since v3.4._
-     */
-    function functionDelegateCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
-        require(isContract(target), "Address: delegate call to non-contract");
-
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.delegatecall(data);
         return _verifyCallResult(success, returndata, errorMessage);
     }
 
@@ -286,224 +164,7 @@ library Address {
     }
 }
 
-
-library SafeMath {
-    /**
-     * @dev Returns the addition of two unsigned integers, with an overflow flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryAdd(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            uint256 c = a + b;
-            if (c < a) return (false, 0);
-            return (true, c);
-        }
-    }
-
-    /**
-     * @dev Returns the substraction of two unsigned integers, with an overflow flag.
-     *
-     * _Available since v3.4._
-     */
-    function trySub(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            if (b > a) return (false, 0);
-            return (true, a - b);
-        }
-    }
-
-    /**
-     * @dev Returns the multiplication of two unsigned integers, with an overflow flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryMul(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-            // benefit is lost if 'b' is also tested.
-            // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-            if (a == 0) return (true, 0);
-            uint256 c = a * b;
-            if (c / a != b) return (false, 0);
-            return (true, c);
-        }
-    }
-
-    /**
-     * @dev Returns the division of two unsigned integers, with a division by zero flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryDiv(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            if (b == 0) return (false, 0);
-            return (true, a / b);
-        }
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers, with a division by zero flag.
-     *
-     * _Available since v3.4._
-     */
-    function tryMod(uint256 a, uint256 b) internal pure returns (bool, uint256) {
-        unchecked {
-            if (b == 0) return (false, 0);
-            return (true, a % b);
-        }
-    }
-
-    /**
-     * @dev Returns the addition of two unsigned integers, reverting on
-     * overflow.
-     *
-     * Counterpart to Solidity's `+` operator.
-     *
-     * Requirements:
-     *
-     * - Addition cannot overflow.
-     */
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a + b;
-    }
-
-    /**
-     * @dev Returns the subtraction of two unsigned integers, reverting on
-     * overflow (when the result is negative).
-     *
-     * Counterpart to Solidity's `-` operator.
-     *
-     * Requirements:
-     *
-     * - Subtraction cannot overflow.
-     */
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a - b;
-    }
-
-    /**
-     * @dev Returns the multiplication of two unsigned integers, reverting on
-     * overflow.
-     *
-     * Counterpart to Solidity's `*` operator.
-     *
-     * Requirements:
-     *
-     * - Multiplication cannot overflow.
-     */
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a * b;
-    }
-
-    /**
-     * @dev Returns the integer division of two unsigned integers, reverting on
-     * division by zero. The result is rounded towards zero.
-     *
-     * Counterpart to Solidity's `/` operator.
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a / b;
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
-     * reverting when dividing by zero.
-     *
-     * Counterpart to Solidity's `%` operator. This function uses a `revert`
-     * opcode (which leaves remaining gas untouched) while Solidity uses an
-     * invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a % b;
-    }
-
-    /**
-     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
-     * overflow (when the result is negative).
-     *
-     * CAUTION: This function is deprecated because it requires allocating memory for the error
-     * message unnecessarily. For custom revert reasons use {trySub}.
-     *
-     * Counterpart to Solidity's `-` operator.
-     *
-     * Requirements:
-     *
-     * - Subtraction cannot overflow.
-     */
-    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        unchecked {
-            require(b <= a, errorMessage);
-            return a - b;
-        }
-    }
-
-    /**
-     * @dev Returns the integer division of two unsigned integers, reverting with custom message on
-     * division by zero. The result is rounded towards zero.
-     *
-     * Counterpart to Solidity's `%` operator. This function uses a `revert`
-     * opcode (which leaves remaining gas untouched) while Solidity uses an
-     * invalid opcode to revert (consuming all remaining gas).
-     *
-     * Counterpart to Solidity's `/` operator. Note: this function uses a
-     * `revert` opcode (which leaves remaining gas untouched) while Solidity
-     * uses an invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        unchecked {
-            require(b > 0, errorMessage);
-            return a / b;
-        }
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
-     * reverting with custom message when dividing by zero.
-     *
-     * CAUTION: This function is deprecated because it requires allocating memory for the error
-     * message unnecessarily. For custom revert reasons use {tryMod}.
-     *
-     * Counterpart to Solidity's `%` operator. This function uses a `revert`
-     * opcode (which leaves remaining gas untouched) while Solidity uses an
-     * invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        unchecked {
-            require(b > 0, errorMessage);
-            return a % b;
-        }
-    }
-}
-
 abstract contract ReentrancyGuard {
-    // Booleans are more expensive than uint256 or any type that takes up a full
-    // word because each write operation emits an extra SLOAD to first read the
-    // slot's contents, replace the bits taken up by the boolean, and then write
-    // back. This is the compiler's defense against contract upgrades and
-    // pointer aliasing, and it cannot be disabled.
-
-    // The values being non-zero value makes deployment a bit more expensive,
-    // but in exchange the refund on every call to nonReentrant will be lower in
-    // amount. Since refunds are capped to a percentage of the total
-    // transaction's gas, it is best to keep them low in cases like this one, to
-    // increase the likelihood of the full refund coming into effect.
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
 
@@ -513,13 +174,6 @@ abstract contract ReentrancyGuard {
         _status = _NOT_ENTERED;
     }
 
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and make it call a
-     * `private` function that does the actual work.
-     */
     modifier nonReentrant() {
         // On the first call to nonReentrant, _notEntered will be true
         require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
@@ -535,20 +189,39 @@ abstract contract ReentrancyGuard {
     }
 }
 
+interface IRouter {
+  function addLiquidityETH(
+      address token,
+      uint amountTokenDesired,
+      uint amountTokenMin,
+      uint amountETHMin,
+      address to,
+      uint deadline
+  ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+  function removeLiquidityETH(
+      address token,
+      uint liquidity,
+      uint amountTokenMin,
+      uint amountETHMin,
+      address to,
+      uint deadline
+  ) external returns (uint amountToken, uint amountETH);
+}
+
 library SafeERC20 {
-    using Address for address;
-    function safeTransfer(IToken token, address to, uint256 value) internal {
-        _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
+  using Address for address;
+  function safeTransfer(IToken token, address to, uint256 value) internal {
+    _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
+  }
+  function safeTransferFrom(IToken token, address from,  address to, uint256 value) internal {
+    _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, from, to, value));
+  }
+  function _callOptionalReturn(IToken token, bytes memory data) private {
+    bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
+    if (returndata.length > 0) {
+      require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
     }
-    function safeTransferFrom(IToken token, address from,  address to, uint256 value) internal {
-        _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, from, to, value));
-    }
-    function _callOptionalReturn(IToken token, bytes memory data) private {
-      bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
-      if (returndata.length > 0) {
-        require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
-      }
-    }
+  }
 }
 
 contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
@@ -602,10 +275,14 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   uint256 public tokens; // total tokens should match the deposited token of the issuer
   uint256 public minimumPurchase; //minimumPurchase in BNB for sale
 
+
+
+  uint256 public total_participants;
   mapping(uint8 => uint256)     public raisedTiers;
   mapping(uint8 => uint256)     public participants;
+  mapping( address => bool )    public participated;
 
-  uint8                         public totalMembers;
+  // uint8                         public totalMembers;
   address[]                     public members;
   mapping(address => bool)      public teamMembers;
 
@@ -615,6 +292,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   mapping(address => uint256)   public deposits; // the amount in wei each beneficiary deposited
   mapping(address => bool)      public managers; // the managers
 
+    
   // TIMEBASED
   uint256 public tier1Time;
   uint256 public tier2Time;
@@ -623,7 +301,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   uint256 public tier5Time;
   uint256 public mainSale;
   uint256 public saleEnds;
-  
+
   uint256 public timePaused;
   uint256 public timeIDOEnded;
 
@@ -666,8 +344,6 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     baseAllocation = _baseAllocation;
     token = _idotoken;
     minimumPurchase = _minimumPurchase;
-    
-    
   }
 
   receive() external payable allowDeposit {
@@ -678,7 +354,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     require( _beneficiary != address(0), 'Zero Address');
     require( msg.value != 0, 'Zero Amount');
     require ( block.timestamp > tier1Time );
-    require ( msg.value > minimumPurchase );
+    require ( msg.value + deposits[ _beneficiary ] >= minimumPurchase );
     require ( canDeposit == true );
     require ( block.timestamp < saleEnds );
 
@@ -690,7 +366,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     } else if (block.timestamp >= mainSale) {
       _computeTokenShareForSale(_beneficiary, amount);
     } else {
-        revert('Unauthorized Transaction - Main Sale Only');
+      revert('Unauthorized Transaction - Main Sale Only');
     }
 
     raised = raised.add(amount);
@@ -698,180 +374,90 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     emit Deposited(_beneficiary, amount);
   }
 
-  /**
-  * rate as follows:
-  * 1. Tier 1 = 200+ LP @ base alloc + 6%
-  * 2. Tier 2 = 200  @ base alloc + 4%
-  * 2. Tier 3 = 150+ @ base alloc + 3%
-  * 3. Tier 4 = 100+ @ base alloc + 2%
-  * 4. Tier 5 = 50+ @ base alloc  ( can purchase earlier than public )
-  * 5. Tier 6 = <50 @ base alloc
-  **/
-  function _computeTokenShareForPreSale(address _beneficiary, uint256 _amount) internal {
-   // uint256 _tierBalance = tierToken.balanceOf(_beneficiary).div(10 ** tierToken.decimals());
-   // uint256 _lpBalance = lpToken.balanceOf(_beneficiary).div(10 ** lpToken.decimals());
 
+  function _computeTokenShareForPreSale(address _beneficiary, uint256 _amount) internal {
     IDOManager _manager = IDOManager( owner() );
     uint tierLevel = _manager.userTierLevel ( _beneficiary );
-    
-    
+
+
     // Starts at Tier 5
     uint8 currentTier;
     //uint256 tierRate;
     uint256 shares = _amount.mul(rate);
-    /*
-    // Tier 1
-    if ( checkTier1( _beneficiary ) ) {
-      tierRate = 6;
-      currentTier = 1;
-      shares = _amount.mul((rate*103)/100);
-    // Tier 2
-    } else if (_tierBalance >= 200 && block.timestamp >= tier2Time) { // tier 2
-      tierRate = 4;
-      currentTier = 2;
-    // Tier 3
-    } else if (_tierBalance >= 150 && _tierBalance < 200 && block.timestamp >= tier3Time) { // tier 2
-      tierRate = 3;
-      currentTier = 3;
-    // Tier 4
-    } else if (_tierBalance >= 100 && _tierBalance < 150 && block.timestamp >= tier4Time) { // tier 3
-      tierRate = 2;
-      currentTier = 4;
-    // Tier 5
-    } else if (_tierBalance >= 50 && _tierBalance < 100 && block.timestamp >= tier5Time) { // tier 4
-      tierRate = 1;
-      currentTier = 5;
-    }  else {
-        revert('Unauthorized Transaction - Main Sale Only');
-    } 
 
-    // all team members should be at tier 1
-    */
-    
-    
     // Tier 1
     if ( tierLevel == 1 ) {
-     
+
       currentTier = 1;
       shares = _amount.mul((rate*103)/100);
-    // Tier 2
+      // Tier 2
     } else if ( tierLevel == 2 && block.timestamp >= tier2Time) { // tier 2
-    
       currentTier = 2;
-    // Tier 3
+
+      // Tier 3
     } else if ( tierLevel == 3 && block.timestamp >= tier3Time) { // tier 3
-    
       currentTier = 3;
-    // Tier 4
+
+      // Tier 4
     } else if ( tierLevel == 4 && block.timestamp >= tier4Time) { // tier 4
-     
       currentTier = 4;
-    // Tier 5
+
+      // Tier 5
     } else if ( tierLevel == 2 && block.timestamp >= tier5Time) { // tier 5
-    
       currentTier = 5;
+
     }  else {
-        revert('Unauthorized Transaction - Main Sale Only');
-    } 
+      revert('Unauthorized Transaction - Main Sale Only');
+    }
 
-    
-    
-    
-
-    require ( _amount  <=  getMaxBNBSend ( currentTier).sub (deposits[_beneficiary ]) );
-    require ( shares + tokenShares[_beneficiary] <= getMaxTierAllocation(tierLevel ) );
-    
-    require( currentTier < 6, 'No Tier Token or LP Balance');
-
-    // only tier 1 - 4 can have bonus
-    // if (currentTier < 5) {
-    //      shares = shares.add(shares.mul(tierRate).div(100));
-    //  }
+    require(_amount <= getMaxBNBSend(currentTier).sub(deposits[_beneficiary ]) );
+    require(shares + tokenShares[_beneficiary] <= getMaxTierAllocation(tierLevel));
+    require(currentTier < 6, 'No Tier Token or LP Balance');
 
     tokenShares[_beneficiary] = tokenShares[_beneficiary].add(shares);
     senderTiers[_beneficiary] = currentTier;
-    participants[currentTier] = participants[currentTier].add(1); // increment by 1
+    
+    if( !participated[_beneficiary] ) { participants[currentTier] = participants[currentTier].add(1); participated[_beneficiary] = true; total_participants++; }// increment by 1
     raisedTiers[currentTier] = raisedTiers[currentTier].add(shares);
     raisedPreSale = raisedPreSale.add(_amount);
     tokens = tokens.add(shares);
     emit TokenAllocated(_beneficiary, shares);
   }
- /*
-  function computeTier(address _beneficiary, uint256 _amount) public view returns(uint8 tierRate, uint8 currentTier, uint256 tierBalance,  uint256 shares) {
-    tierBalance = tierToken.balanceOf(_beneficiary).div(10 ** tierToken.decimals());
-    //lpBalance = lpToken.balanceOf(_beneficiary).div(10 ** lpToken.decimals());
 
-    tierRate = 1;
-    currentTier = 6;
-    shares = _amount.mul(rate);
 
-    if ( checkTier1( _beneficiary )  ) {
-      tierRate = 6;
-      currentTier = 1;
-        shares = _amount.mul( (rate*103)/100 );
-    // Tier 2
-    } else if (tierBalance >= 200 ) { // tier 2
-      tierRate = 4;
-      currentTier = 2;
-    // Tier 3
-    }else if (tierBalance >= 150 && tierBalance < 200) { // tier 2
-      tierRate = 3;
-      currentTier = 3;
-    // Tier 3
-    } else if (tierBalance >= 100 && tierBalance < 150) { // tier 3
-      tierRate = 2;
-      currentTier = 4;
-    // Tier 4
-    } else if (tierBalance >= 50 && tierBalance < 100) { // tier 4
-      tierRate = 1;
-      currentTier = 5;
-    }
-    
-   
-   
-    require ( _amount <= getMaxBNBSend ( currentTier ));
-    //if (currentTier < 5) {
-    //  shares = shares.add(shares.mul(tierRate).div(100));
-    //}
-  }
-  */
-  
   function computeTier(address _beneficiary, uint256 _amount) public view returns(uint8 currentTier,   uint256 shares) {
-     IDOManager _manager = IDOManager( owner() );
+    IDOManager _manager = IDOManager( owner() );
     uint tierLevel = _manager.userTierLevel ( _beneficiary );
-    
-    
-    
+
     // Tier 1
     if ( tierLevel == 1 ) {
-     
+
       currentTier = 1;
       shares = _amount.mul((rate*103)/100);
-      
-    // Tier 2
+
+      // Tier 2
     } else if ( tierLevel == 2 && block.timestamp >= tier2Time) { // tier 2
-    
+
       currentTier = 2;
-    // Tier 3
+      // Tier 3
     } else if ( tierLevel == 3 && block.timestamp >= tier3Time) { // tier 3
-    
+
       currentTier = 3;
-    // Tier 4
+      // Tier 4
     } else if ( tierLevel == 4 && block.timestamp >= tier4Time) { // tier 4
-     
+
       currentTier = 4;
-    // Tier 5
+      // Tier 5
     } else if ( tierLevel == 2 && block.timestamp >= tier5Time) { // tier 5
-    
+
       currentTier = 5;
     }  else {
-        revert('Unauthorized Transaction - Main Sale Only');
-    } 
+      revert('Unauthorized Transaction - Main Sale Only');
+    }
 
-    
   }
 
-  
+
   function _computeTokenShareForSale(address _beneficiary, uint256 _amount) internal {
     uint256 shares = _amount.mul(rate);
     tokenShares[_beneficiary] += shares;
@@ -893,126 +479,116 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     stage = SaleStage.SALE;
     emit StatusChanged(stage);
   }
-  
+
   function setSchedule( uint256 utctime ) internal {
-      
-     mainSale  = utctime + 3 hours;
-     tier1Time = utctime;
-     tier2Time = utctime + 1 hours;
-     tier3Time = utctime + 1 hours + 30 minutes;
-     tier4Time = utctime + 2 hours;
-     tier5Time = utctime + 2 hours + 30 minutes;
-     saleEnds  = utctime + 24 hours;
-      
-      
+    mainSale  = utctime + 3 hours;
+    tier1Time = utctime;
+    tier2Time = utctime + 1 hours;
+    tier3Time = utctime + 1 hours + 30 minutes;
+    tier4Time = utctime + 2 hours;
+    tier5Time = utctime + 2 hours + 30 minutes;
+    saleEnds  = utctime + 24 hours;
   }
- 
-  
+
+
   function getCurrentUTCTime() public view returns ( uint256 ) {
-      return block.timestamp;
+    return block.timestamp;
   }
-  
+
   function preSaleStarted() public view returns ( bool ) {
-  
-      return ( block.timestamp >= tier1Time  && tier1Time != 0 );
+    return ( block.timestamp >= tier1Time  && tier1Time != 0 );
   }
-  
+
   function mainSaleStarted() public view returns ( bool ) {
-  
-      return ( block.timestamp >= mainSale  && mainSale != 0 );
+    return ( block.timestamp >= mainSale  && mainSale != 0 );
   }
-  
+
   function getBaseAllocation() public view returns ( uint256 ) {
-      return baseAllocation;
+    return baseAllocation;
   }
-  
+
   function setBaseAllocation(  uint256 _baseAllocation ) public onlyManagers{
-      baseAllocation = _baseAllocation * 1000000000000000000;
+    baseAllocation = _baseAllocation * 1000000000000000000;
   }
-  
+
   function getMaxTierAllocation ( uint256 _tier ) public view returns ( uint256 ){
-      require ( _tier > 0 );
-      if ( _tier == 1 ) return (((6600 * baseAllocation)/1000));
-      if ( _tier == 2 ) return (((4400 * baseAllocation)/1000));
-      if ( _tier == 3 ) return (((3300 * baseAllocation)/1000));
-      if ( _tier == 4 ) return (((2300 * baseAllocation)/1000));
-      if ( _tier == 5 ) return (((1000 * baseAllocation)/1000));
-      return ((1 * baseAllocation));
+    require ( _tier > 0 );
+    if ( _tier == 1 ) return (((6600 * baseAllocation)/1000));
+    if ( _tier == 2 ) return (((4400 * baseAllocation)/1000));
+    if ( _tier == 3 ) return (((3300 * baseAllocation)/1000));
+    if ( _tier == 4 ) return (((2300 * baseAllocation)/1000));
+    if ( _tier == 5 ) return (((1000 * baseAllocation)/1000));
+    return ((1 * baseAllocation));
   }
-  
+
   function getMaxBNBSend ( uint256 _tier ) public view returns ( uint256 ){
-      require ( _tier > 0 );
-      if ( _tier == 1 ) return (((6600 * baseAllocation)/1000)/(rate*103/100));
-      if ( _tier == 2 ) return (((4400 * baseAllocation)/1000)/rate);
-      if ( _tier == 3 ) return (((3300 * baseAllocation)/1000)/rate);
-      if ( _tier == 4 ) return (((2300 * baseAllocation)/1000)/rate);
-      if ( _tier == 5 ) return (((1000 * baseAllocation)/1000)/rate);
-      return ((1 * baseAllocation/rate));
+    require ( _tier > 0 );
+    if ( _tier == 1 ) return (((6600 * baseAllocation)/1000)/(rate*103/100));
+    if ( _tier == 2 ) return (((4400 * baseAllocation)/1000)/rate);
+    if ( _tier == 3 ) return (((3300 * baseAllocation)/1000)/rate);
+    if ( _tier == 4 ) return (((2300 * baseAllocation)/1000)/rate);
+    if ( _tier == 5 ) return (((1000 * baseAllocation)/1000)/rate);
+    return ((1 * baseAllocation/rate));
   }
-  
+
   function getIDOContractTokenBalance() public view  returns ( uint256 ){
-      
-      return token.balanceOf(address(this));
+    return token.balanceOf(address(this));
   }
-  
+
   function checkTier1( address _beneficiary ) public view returns ( bool ){
-      
-      IDOManager _manager = IDOManager( owner() );
-      return ( _manager.doesUserHaveLPStaked ( _beneficiary ) || teamMembers[_beneficiary] );
-      
-      
+    IDOManager _manager = IDOManager( owner() );
+    return ( _manager.doesUserHaveLPStaked ( _beneficiary ) || teamMembers[_beneficiary] );
   }
-  
+
   function getCurrentTier() public view returns ( uint8 ){
     // Defaults to IDO did not start yet
-    uint8 currentTier = 0; 
-    
-       // Tier Paused
-    if (  tier1Time == 8888888888 ) {
-     
+    uint8 currentTier = 0;
+
+    // Tier Paused
+    if (tier1Time == 8888888888) {
+
       currentTier = 255;// IDO is paused
-     // Tier Mainsale
+      // Tier Mainsale
     } else if ( tier1Time == 0) { // tier 2
-     
       currentTier = 0;
-    // Tier 5
+
+      // Tier 5
     } else if ( block.timestamp >= mainSale) { // tier 2
-     
       currentTier = 6;
-    // Tier 5
+
+      // Tier 5
     } else if ( block.timestamp >= tier5Time) { // tier 2
-     
       currentTier = 5;
-    // Tier 4
+
+      // Tier 4
     } else if ( block.timestamp >= tier4Time) { // tier 3
-     
       currentTier = 4;
-    // Tier 3
+
+      // Tier 3
     } else if (  block.timestamp >= tier3Time) { // tier 4
-     
       currentTier = 3;
+
       // Tier 2
     } else if ( block.timestamp >= tier2Time ) {
-         
       currentTier = 2;
+
       // Tier 1
     } else if ( block.timestamp >= tier1Time ) {
-         
-      currentTier = 1; 
-    } 
-      
+      currentTier = 1;
+    }
+
     return currentTier;
-      
+
   }
-  
+
   function availableAllocationLeft ( address _user ) public view returns ( uint256 ){
-      IDOManager _manager = IDOManager( owner() );
-      return getMaxTierAllocation ( _manager.userTierLevel ( _user )).sub(tokenShares [_user]) ; 
+    IDOManager _manager = IDOManager( owner() );
+    return getMaxTierAllocation ( _manager.userTierLevel ( _user )).sub(tokenShares [_user]) ;
   }
-  
+
   function availableAllocationLeftinBNB ( address _user ) public view returns ( uint256 ){
-      IDOManager _manager = IDOManager( owner() );
-      return getMaxBNBSend ( _manager.userTierLevel ( _user )).sub( deposits [_user])  ; 
+    IDOManager _manager = IDOManager( owner() );
+    return getMaxBNBSend ( _manager.userTierLevel ( _user )).sub( deposits [_user])  ;
   }
 
   function pauseSale() public onlyManagers {
@@ -1025,7 +601,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     setSchedule ( 8888888888 );
     emit StatusChanged(stage);
   }
-  
+
   function unPauseSale() public onlyManagers {
     require ( stage == SaleStage.PAUSED );
     canRefund = false;
@@ -1052,17 +628,6 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     if ( block.timestamp < saleEnds ) {timeIDOEnded = block.timestamp; } else timeIDOEnded = saleEnds ;
     emit StatusChanged(stage);
     issuerLock = block.timestamp + (1 days * 365); // total of 1 year
-  }
-
-  // manager should be able to withdraw
-  // TODO: team issuance
-  function sendFunds() public onlyManagers {
-    require(!issuerWithdrawn, 'Funds are withdrawn');
-    _sendValue(payable(lp), liquidityShare);
-    _sendValue(payable(issuer), issuerShare);
-    token.safeTransfer(lp, lpTokenShare);
-    issuerWithdrawn = true;
-    stage = SaleStage.COMPLETED;
   }
 
   // allows recomputation of distribution incase sale is extended
@@ -1105,8 +670,6 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   /**
   * OWNER FUNCTIONS
   **/
-  
-  
   function addTeam(address[] memory _members) public onlyOwner override {
     members = _members;
     for (uint8 i = 0; i < _members.length; i++) {
@@ -1135,9 +698,17 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     issuer = _issuer;
     lp = _lp;
   }
-  
+
   function setIDOToken(IToken _token ) public  onlyManagers {
     token = _token;
+  }
+
+  function createPair(IRouter _router, address _to) public onlyManagers {
+    require(stage == SaleStage.FINALIZED, 'Not Finalized');
+    require(address(this).balance >= liquidityShare, 'Insufficient Balance');
+    require(getIDOContractTokenBalance() >= lpTokenShare, 'Insufficient Tokens');
+    _router.addLiquidityETH(address(token), lpTokenShare, lpTokenShare, liquidityShare, _to, block.timestamp);
+    stage = SaleStage.COMPLETED;
   }
 
   /**
@@ -1165,21 +736,15 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     // once the issuer can withdraw their 37% share
     if (!issuerWithdrawn && issuerShare > 0 && liquidityShare > 0 && lpTokenShare > 0) {
       _sendValue(payable(issuer), issuerShare);
-      _sendValue(payable(lp), liquidityShare); // 100% of the liquidityShare
-      token.safeTransfer(lp, lpTokenShare); // 97% of the tokens
       issuerWithdrawn = true;
     }
-    // after a year
-    // if (block.timestamp >= issuerLock) {
-    //  _sendValue(payable(issuer), address(this).balance);
-    //}
   }
 
   // burn tokens
   function issuerBurn( uint256 _amount) public onlyIssuer {
     require(claimed >= tokens, 'Issuer Cannot Burn Token < Claimed');
     token.safeTransfer( 0x0000000000000000000000000000000000000000, _amount);
-  }                     
+  }
 
   function _sendValue(address payable recipient, uint256 amount) internal {
     require(address(this).balance >= amount, 'Insufficient Balance');
@@ -1189,13 +754,10 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
 
 }
 
-
-
 contract IDOManager is Ownable {
-    
+
   using SafeERC20 for IToken;
   using SafeMath for uint256;
-
 
   event ContractCreated(address indexed);
 
@@ -1212,51 +774,49 @@ contract IDOManager is Ownable {
   uint8 public liquidityPerc = 60;
   uint8 public issuerPerc = 35;
   uint8 public tokenWeight = 97;
-  
+
   uint256 public contractCount=0;
-  
-  
+
+
   IToken public token;
-    //address public vltbnb_token;
-   mapping ( address => uint256 ) public stakedAmountLP;
-   mapping ( address => uint256 ) public stakedTimeLP;
-   mapping ( address => uint256 ) public stakedAmountVLT;
-   mapping ( address => uint256 ) public stakedTimeVLT;
-   uint256 public lastIDODeployedTime; 
-   uint256 public minimumVLTLockTime;
-   uint256 public minimumLP;
+  //address public vltbnb_token;
+  mapping ( address => uint256 ) public stakedAmountLP;
+  mapping ( address => uint256 ) public stakedTimeLP;
+  mapping ( address => uint256 ) public stakedAmountVLT;
+  mapping ( address => uint256 ) public stakedTimeVLT;
+  uint256 public lastIDODeployedTime;
+  uint256 public minimumVLTLockTime;
+  uint256 public minimumLP;
 
   struct ContractDetails {
     string    name;
     address   issuer;
     uint8     version;
+    address   manager;
+    uint256   rate;
+    uint256   baseAllocation;
+    address   idoToken;
+    uint256   minimumPurchase;
   }
 
   mapping (address => ContractDetails) public contracts;
   mapping (uint256 => address) public contractAddresses;
 
-
-
   constructor() {
-      
-      minimumLP = 46000000000000000000;
-      lpaddress = 0x1ef932e9574542BC2730c6DC5Fa0003023c62b5e;
-      tierToken = IToken(0xda8336cc6A4C37e69d539BFA5Da1B3499f376162);
-      lpToken = IToken(0x451f70056FfdCBe4F4Db04d717DAE818054C0688);
-      tokensSet = true;
-      team = [0x0509A3053C83F55c88DBc726eb29A19972f29A36,0xf2b90042164e84A4f9599c8948d63A8DED7d29c1];
-      teamCount = team.length;
-      teamSet = true;
-      minimumVLTLockTime = 6 minutes;
+    minimumLP = 46000000000000000000;
+    lpaddress = 0x1ef932e9574542BC2730c6DC5Fa0003023c62b5e;
+    tierToken = IToken(0xda8336cc6A4C37e69d539BFA5Da1B3499f376162);
+    lpToken = IToken(0x451f70056FfdCBe4F4Db04d717DAE818054C0688);
+    tokensSet = true;
+    team = [0x0509A3053C83F55c88DBc726eb29A19972f29A36,0xf2b90042164e84A4f9599c8948d63A8DED7d29c1];
+    teamCount = team.length;
+    teamSet = true;
+    minimumVLTLockTime = 6 minutes;
   }
-
 
   // deploy the ido contract
   function deployIDO(string memory _name, address _issuer, address _manager, uint256 _rate, uint256 _baseAllocation, IToken _idotoken, uint256 _minimumPurchase, uint8 _version) public onlyTeam returns(address) {
-
     require ( tokensSet && teamSet );
-    
-    
     IDOCrowdsale newIDO = new IDOCrowdsale(_issuer, _manager, _rate , tierToken, lpToken, lpaddress, _baseAllocation*1000000000000000000, _idotoken, _minimumPurchase  );
 
     newIDO.setManager(manager, true);
@@ -1265,7 +825,7 @@ contract IDOManager is Ownable {
 
     address _newIDOAddress = address(newIDO);
     emit ContractCreated(_newIDOAddress);
-    contracts[_newIDOAddress] = ContractDetails(_name, _issuer, _version);
+    contracts[_newIDOAddress] = ContractDetails(_name, _issuer, _version, _manager, _rate, _baseAllocation, address(_idotoken), _minimumPurchase );
     contractAddresses[contractCount] = _newIDOAddress;
     contractCount++;
     lastIDODeployedTime = block.timestamp;
@@ -1273,8 +833,8 @@ contract IDOManager is Ownable {
   }
 
   // set the ido sale setting
-  
-  
+
+
   function setIDOSetting(IIDOCrowdsale _contract, IToken _token, uint256 _rate, address _issuer, address _lp) public onlyOwner {
     _contract.setSetting(_token, tierToken, lpToken, _rate, _issuer, _lp);
   }
@@ -1286,7 +846,7 @@ contract IDOManager is Ownable {
     tokensSet = true;
   }
 
- 
+
 
   // set the distribution percentage
   function setDistribution(IIDOCrowdsale _contract, uint8 _teamPerc, uint8 _liquidityPerc, uint8 _issuerPerc, uint8 _tokenWeight) public onlyOwner {
@@ -1307,108 +867,97 @@ contract IDOManager is Ownable {
     teamCount = _team.length;
     teamSet = true;
   }
-  
-  function getTeam()public view returns( address  [] memory){
+
+  function getTeam() public view returns( address  [] memory){
     return team;
   }
-  
-  
+
+
   function setMinimumLP ( uint256 _minLP ) public onlyTeam {
-        
-        minimumLP = _minLP;
-        
-    }
-    
-     /**
-     * @dev deposit LP Tokens
-     * @param _lptokens value to store
-     */
-    function depositLP(uint256 _lptokens) public {
-        
-        require ( _lptokens >= minimumLP );
-        stakedAmountLP [ msg.sender ] += _lptokens;
-        lpToken.transferFrom( msg.sender , address(this), _lptokens );
-        
-    }
+    minimumLP = _minLP;
+  }
 
-    /**
-     * @dev Withdraw LP Tokens 
-     */
-    function withdrawLP() public {
-        uint256 withdrawalamount = stakedAmountLP [ msg.sender ];
-        stakedAmountLP [ msg.sender ] = 0;
-        lpToken.safeTransfer ( msg.sender , withdrawalamount );
-    }
-    
-    function doesUserHaveLPStaked( address _user ) public view returns ( bool ){
-        if ( stakedAmountLP[ _user] >0 ) {return true;} else { return false; }
-    }
+  /**
+  * @dev deposit LP Tokens
+  * @param _lptokens value to store
+  */
+  function depositLP(uint256 _lptokens) public {
+    require ( _lptokens >= minimumLP );
+    stakedAmountLP [ msg.sender ] += _lptokens;
+    lpToken.transferFrom( msg.sender , address(this), _lptokens );
 
-      /**
-     * @dev deposit VLT Tokens
-     * @param _amount value to store
-     */
-    function depositVLT(uint256 _amount) public {
-        stakedAmountVLT [ msg.sender ] += _amount;
-        if ( stakedTimeVLT [ msg.sender ] == 0 ) stakedTimeVLT [ msg.sender ] = block.timestamp; 
-        tierToken.transferFrom( msg.sender , address(this), _amount );
-    }
+  }
 
-    /**
-     * @dev Withdraw VLT Tokens 
-     */
-    function withdrawVLT() public {
-        
-        uint256 withdrawalamount = stakedAmountVLT [ msg.sender ];
-        stakedAmountVLT [ msg.sender ] = 0;
-        stakedTimeVLT[ msg.sender ] = 0;
-        tierToken.safeTransfer ( msg.sender , withdrawalamount );
-    }
-    
-    function userTierLevel( address _user ) public view returns ( uint8 ){
-        
-        if ( doesUserHaveLPStaked( _user ) || isTeamMember( _user ) ) return 1;
-        if ( stakedTimeVLT[ _user ] == 0 ) return 6;   
-        if ( stakedTimeVLT[ _user ] + minimumVLTLockTime > lastIDODeployedTime ) return 6;   
-        if ( stakedAmountVLT[ _user] < 100000000000000000000 && stakedAmountVLT[ _user] >=50000000000000000000   ) return 5;
-        if ( stakedAmountVLT[ _user] < 150000000000000000000 && stakedAmountVLT[ _user] >=100000000000000000000  ) return 4;
-        if ( stakedAmountVLT[ _user] < 200000000000000000000 && stakedAmountVLT[ _user] >=150000000000000000000  ) return 3;
-        if ( stakedAmountVLT[ _user] >= 200000000000000000000  ) return 2;
-        return 6;
-    }
-    
-    function userDepositTierLevel( address _user ) public view returns ( uint8 , uint256 ){
-        
-      
-        uint256 timeSinceDeposit = block.timestamp.sub(stakedTimeVLT[ _user ]);
-        
-        if ( doesUserHaveLPStaked( _user ) || isTeamMember( _user ) ) return (1,0);
-        if ( stakedAmountVLT[ _user] < 100000000000000000000 && stakedAmountVLT[ _user] >=50000000000000000000   ) return (5, timeSinceDeposit );
-        if ( stakedAmountVLT[ _user] < 150000000000000000000 && stakedAmountVLT[ _user] >=100000000000000000000  ) return (4, timeSinceDeposit );
-        if ( stakedAmountVLT[ _user] < 200000000000000000000 && stakedAmountVLT[ _user] >=150000000000000000000  ) return (3, timeSinceDeposit );
-        if ( stakedAmountVLT[ _user] >= 200000000000000000000  ) return (2,timeSinceDeposit);
-        return (6,0);
-    }
+  /**
+  * @dev Withdraw LP Tokens
+  */
+  function withdrawLP() public {
+    uint256 withdrawalamount = stakedAmountLP [ msg.sender ];
+    stakedAmountLP [ msg.sender ] = 0;
+    lpToken.safeTransfer ( msg.sender , withdrawalamount );
+  }
 
-    function isTeamMember( address _user ) public view returns ( bool ){
-        
-        for( uint i=0; i<teamCount ; i++){
-         if( team[i] == _user ) return true;
-        }
-        
-        return false;
-    }
+  function doesUserHaveLPStaked( address _user ) public view returns ( bool ){
+    return stakedAmountLP[ _user] > 0;
+  }
 
-  
-    modifier onlyTeam() {
-     
-     bool team_member = false;
-     for( uint i=0; i<teamCount ; i++){
-         if( team[i] == msg.sender ) team_member = true;
-     }
+  /**
+  * @dev deposit VLT Tokens
+  * @param _amount value to store
+  */
+  function depositVLT(uint256 _amount) public {
+    stakedAmountVLT [ msg.sender ] += _amount;
+    if (stakedTimeVLT [ msg.sender ] == 0) {
+      stakedTimeVLT[ msg.sender ] = block.timestamp;
+    }
+    tierToken.transferFrom( msg.sender , address(this), _amount );
+  }
+
+  /**
+  * @dev Withdraw VLT Tokens
+  */
+  function withdrawVLT() public {
+    uint256 withdrawalamount = stakedAmountVLT [ msg.sender ];
+    stakedAmountVLT [ msg.sender ] = 0;
+    stakedTimeVLT[ msg.sender ] = 0;
+    tierToken.safeTransfer ( msg.sender , withdrawalamount );
+  }
+
+  function userTierLevel(address _user) public view returns ( uint8 ){
+    if ( doesUserHaveLPStaked( _user ) || isTeamMember( _user ) ) return 1;
+    if ( stakedTimeVLT[ _user ] == 0 ) return 6;
+    if ( stakedTimeVLT[ _user ] + minimumVLTLockTime > lastIDODeployedTime ) return 6;
+    if ( stakedAmountVLT[ _user] < 100000000000000000000 && stakedAmountVLT[ _user] >=50000000000000000000   ) return 5;
+    if ( stakedAmountVLT[ _user] < 150000000000000000000 && stakedAmountVLT[ _user] >=100000000000000000000  ) return 4;
+    if ( stakedAmountVLT[ _user] < 200000000000000000000 && stakedAmountVLT[ _user] >=150000000000000000000  ) return 3;
+    if ( stakedAmountVLT[ _user] >= 200000000000000000000  ) return 2;
+    return 6;
+  }
+
+  function userDepositTierLevel(address _user) public view returns ( uint8 , uint256 ) {
+    uint256 timeSinceDeposit = block.timestamp.sub(stakedTimeVLT[ _user ]);
+    if ( doesUserHaveLPStaked( _user ) || isTeamMember( _user ) ) return (1,0);
+    if ( stakedAmountVLT[ _user] < 100000000000000000000 && stakedAmountVLT[ _user] >=50000000000000000000   ) return (5, timeSinceDeposit );
+    if ( stakedAmountVLT[ _user] < 150000000000000000000 && stakedAmountVLT[ _user] >=100000000000000000000  ) return (4, timeSinceDeposit );
+    if ( stakedAmountVLT[ _user] < 200000000000000000000 && stakedAmountVLT[ _user] >=150000000000000000000  ) return (3, timeSinceDeposit );
+    if ( stakedAmountVLT[ _user] >= 200000000000000000000  ) return (2,timeSinceDeposit);
+    return (6,0);
+  }
+
+  function isTeamMember(address _user) public view returns ( bool ){
+    for( uint i=0; i<teamCount ; i++) {
+      if(team[i] == _user) return true;
+    }
+    return false;
+  }
+
+  modifier onlyTeam() {
+
+    bool team_member = false;
+    for( uint i=0; i<teamCount ; i++){
+      if( team[i] == msg.sender ) team_member = true;
+    }
     require(team_member == true , 'Team Access Only');
     _;
   }
-
-
 }
