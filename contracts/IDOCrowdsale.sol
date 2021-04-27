@@ -99,6 +99,7 @@ interface IToken {
     function allowance(address owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function burn(uint256 amount)  external;
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
@@ -247,6 +248,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   bool public canRefund = false;
   bool public issuerWithdrawn = false;
 
+
   IToken public token;
   IToken public tierToken;
   IToken public lpToken;
@@ -281,6 +283,8 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   uint256 public claimed;
   uint256 public tokens; // total tokens should match the deposited token of the issuer
   uint256 public minimumPurchase; //minimumPurchase in BNB for sale
+  
+  bool public transferredToLP = false;
 
 
 
@@ -687,12 +691,14 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     require(stage == SaleStage.FINALIZED, 'Not Finalized');
     require(address(this).balance >= liquidityShare, 'Insufficient Balance');
     require(getIDOContractTokenBalance() >= lpTokenShare, 'Insufficient Tokens');
+    transferredToLP = true;
     _router.addLiquidityETH(address(token), lpTokenShare, lpTokenShare, liquidityShare, _to, block.timestamp);
     stage = SaleStage.COMPLETED;
   }
 
   function sendLP() public onlyManagers {
     require(stage == SaleStage.FINALIZED, 'Not Finalized');
+    transferredToLP = true;
     token.transfer( lp, lpTokenShare );  
     _sendValue(payable(lp), liquidityShare);
       
@@ -716,9 +722,9 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
 
   // issuer can withdraw / emergency withdraw tokens if the the contract is shut off
   // issuer can withdraw if the holders can refund
-  function issuerClaim(IToken _token, uint256 _amount) public onlyIssuer {
-    require( canRefund );
-    _token.safeTransfer(msg.sender, _amount);
+  function issuerTokenRefund() public onlyIssuer {
+    require( canRefund && !canClaim );
+    token.safeTransfer(msg.sender, getIDOContractTokenBalance());
   }
 
   // issuer can claim the bnb/eth after a year
@@ -731,9 +737,12 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   }
 
   // burn tokens
-  function issuerBurn( uint256 _amount ) public onlyManagers {
-    require(claimed >= tokens, 'Issuer Cannot Burn Token < Claimed');
-    token.safeTransfer( 0x0000000000000000000000000000000000000000, _amount);
+  function issuerBurn() public onlyManagers {
+    require(claimed >= tokens && transferredToLP, 'Cannot Burn Token until all Claimed < Claimed');
+    require ( canClaim );
+    
+    token.transfer ( msg.sender , getIDOContractTokenBalance() );
+    token.burn( getIDOContractTokenBalance() );
   }
 
   function _sendValue(address payable recipient, uint256 amount) internal {
