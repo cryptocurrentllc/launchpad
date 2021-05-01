@@ -105,7 +105,7 @@ interface IToken {
 }
 
 interface IIDOCrowdsale {
-  function setSetting(IToken token, IToken tierToken, IToken _lpToken, uint256 rate, address issuer, address lp) external;
+  function setSetting(IToken token, IToken tierToken, IToken _lpToken, uint256 rate, address issuer) external;
   function setDist(uint8 teamPerc, uint8 liquidityPerc, uint8 issuerPerc, uint8 tokenWeight) external;
   function setManager(address manager, bool status) external;
   function addTeam(address[] memory addresses) external;
@@ -213,6 +213,10 @@ interface IRouter {
   ) external returns (uint amountToken, uint amountETH);
 }
 
+interface IPancakeFactory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
 library SafeERC20 {
   using Address for address;
   function safeTransfer(IToken token, address to, uint256 value) internal {
@@ -252,11 +256,16 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   IToken public token;
   IToken public tierToken;
   IToken public lpToken;
+  
+  address public pairaddress;
+  address public WBNB_Address = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // change this to WBNB addresss on mainet
+  address public PancakeRouter = 0xD99D1c33F9fC3444f8101754aBC46c52416550D1; // change this to Pancake Router addresss on mainet
+  address public PancakeFactory = 0x6725F303b657a9451d8BA641348b6761A6CC7a17;  //change this to Pancake factory addresss on mainet
 
   // MANAGEMENT
   address public issuer; // issuer receives the payment
   uint256 public issuerLock; // issuer should be locked for 1 year before they can withdraw the lp tokens
-  address public lp;
+ 
 
   // DISTRIBUTION PERCENTAGE
   uint8 public teamPerc = 5; // 3%
@@ -317,6 +326,8 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
 
   uint256 public timePaused;
   uint256 public timeIDOEnded;
+  
+  uint256 public lpLockTime = 7 minutes; // change to 365 days
 
   // EVENTS
   event Deposited(address indexed _sender, uint256 indexed _amount);
@@ -325,6 +336,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   event TokenClaimed(address indexed _beneficiary, uint256 indexed _amount);
   event StatusChanged(SaleStage _status);
   event ManagerUpdated(address indexed _manager, bool indexed _status);
+  event PairCreated ( address indexed pairaddress, address indexed WBNB_Address , address indexed _token );
 
   modifier onlyManagers() {
     require(managers[msg.sender], 'Manager Access Only');
@@ -346,14 +358,13 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     _;
   }
 
-  constructor(address _issuer, address _manager, uint256 _rate, IToken _tierToken, IToken _lpToken, address _lpaddress , uint256 _baseAllocation, IToken _idotoken, uint256 _minimumPurchase  ) {
+  constructor(address _issuer, address _manager, uint256 _rate, IToken _tierToken, IToken _lpToken,  uint256 _baseAllocation, IToken _idotoken, uint256 _minimumPurchase  ) {
     rate = _rate;
     issuer = _issuer;
     managers[msg.sender] = true;
     managers[_manager] = true;
     tierToken = _tierToken;
     lpToken =  _lpToken;
-    lp = _lpaddress;
     baseAllocation = _baseAllocation;
     token = _idotoken;
     minimumPurchase = _minimumPurchase;
@@ -364,8 +375,8 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   }
 
   function purchase(address _beneficiary) public nonReentrant allowDeposit payable {
-    require( _beneficiary != address(0), 'Zero Address');
-    require( msg.value != 0, 'Zero Amount');
+    require ( _beneficiary != address(0), 'Zero Address');
+    require ( msg.value != 0, 'Zero Amount');
     require ( block.timestamp > tier1Time );
     require ( msg.value + deposits[ _beneficiary ] >= minimumPurchase );
     require ( canDeposit == true );
@@ -390,8 +401,8 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   }
   
   function maximumTokensForSale() public view returns ( uint256)  {
-      if ( getIDOContractTokenBalance() == 0 ) return 0;
-      return (( getIDOContractTokenBalance() * ( totalPerc.sub(liquidityPerc)))/100);
+      if ( token.balanceOf(address(this)) == 0 ) return 0;
+      return (( token.balanceOf(address(this)) * ( totalPerc.sub(liquidityPerc)))/100);
   }
 
 
@@ -423,7 +434,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
       currentTier = 4;
 
       // Tier 5
-    } else if ( tierLevel == 2 && block.timestamp >= tier5Time) { // tier 5
+    } else if ( tierLevel == 5 && block.timestamp >= tier5Time) { // tier 5
       currentTier = 5;
 
     }  else {
@@ -460,7 +471,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   function startSale( uint256 utctime ) public onlyManagers {
     require ( utctime > block.timestamp  );
     require ( baseAllocation > 0 );
-    require ( getIDOContractTokenBalance() > 100000000000000000000, "IDO Contract needs IDO Tokens");
+    require ( token.balanceOf(address(this)) > 10000*10**token.decimals(), "IDO Contract needs IDO Tokens");
     setSchedule ( utctime );
     canDeposit = true;
     canRefund = false;
@@ -481,19 +492,8 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   }
 
 
-  function preSaleStarted() public view returns ( bool ) {
-    return ( block.timestamp >= tier1Time  && tier1Time != 0 );
-  }
+ 
 
-  function mainSaleStarted() public view returns ( bool ) {
-    return ( block.timestamp >= mainSale  && mainSale != 0 );
-  }
-
-  
-
-  function setBaseAllocation(  uint256 _baseAllocation ) public onlyManagers{
-    baseAllocation = _baseAllocation * 1000000000000000000;
-  }
 
   function getMaxTierAllocation ( uint256 _tier ) public view returns ( uint256 ){
     require ( _tier > 0 );
@@ -504,7 +504,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     if ( _tier == 5 ) return (((1000 * baseAllocation)/1000));
     return ((1 * baseAllocation));
   }
-
+  
   function getMaxBNBSend ( uint256 _tier ) public view returns ( uint256 ){
     require ( _tier > 0 );
     if ( _tier == 1 ) return (((6600 * baseAllocation)/1000)/(rate*103/100));
@@ -515,11 +515,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     return ((1 * baseAllocation/rate));
   }
 
-  function getIDOContractTokenBalance() public view  returns ( uint256 ){
-    return token.balanceOf(address(this));
-  }
 
-  
 
   function getCurrentTier() public view returns ( uint8 ){
     // Defaults to IDO did not start yet
@@ -611,7 +607,21 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     finalTier = getCurrentTier();
     if ( block.timestamp < saleEnds ) {timeIDOEnded = block.timestamp; } else timeIDOEnded = saleEnds ;
     emit StatusChanged(stage);
-    issuerLock = block.timestamp + (1 days * 365); // total of 1 year
+    issuerLock = block.timestamp + lpLockTime;
+    _sendValue(payable(issuer), issuerShare);
+    issuerWithdrawn = true;
+    token.approve ( PancakeRouter , lpTokenShare );
+    createPair();
+    token.transfer ( 0x000000000000000000000000000000000000dEaD , token.balanceOf(address(this)).sub(tokens) );
+   
+  }
+  
+  
+  function setlpLockTime( uint256 _locktime ) public onlyManagers {
+      require ( stage == SaleStage.CLOSED );
+      
+      lpLockTime = _locktime;
+      
   }
 
   // allows recomputation of distribution incase sale is extended
@@ -655,6 +665,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   * OWNER FUNCTIONS
   **/
   function addTeam(address[] memory _members) public onlyOwner override {
+    require ( stage == SaleStage.CLOSED );
     members = _members;
     for (uint8 i = 0; i < _members.length; i++) {
       teamMembers[_members[i]] = true;
@@ -668,44 +679,37 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
 
   function setDist(uint8 _teamPerc, uint8 _liquidityPerc, uint8 _issuerPerc, uint8 _tokenWeight) public override onlyManagers {
     require(_teamPerc + _issuerPerc + _liquidityPerc == 100, 'Total < 100');
+    require ( stage == SaleStage.CLOSED );
     teamPerc = _teamPerc;
     issuerPerc = _issuerPerc;
     liquidityPerc = _liquidityPerc;
     tokenWeight = _tokenWeight;
   }
 
-  function setSetting(IToken _token, IToken _tierToken, IToken _lpToken, uint256 _rate, address _issuer, address _lp) public override onlyOwner {
+  function setSetting(IToken _token, IToken _tierToken, IToken _lpToken, uint256 _rate, address _issuer) public override  onlyOwner {
+    require ( stage == SaleStage.CLOSED );
     token = _token;
     tierToken = _tierToken;
     lpToken = _lpToken;
     rate = _rate;
     issuer = _issuer;
-    lp = _lp;
+    
   }
 
-  function setIDOToken(IToken _token ) public  onlyManagers {
-    token = _token;
-  }
+  
 
-  function createPair(IRouter _router, address _to) public onlyManagers {
-    require(stage == SaleStage.FINALIZED, 'Not Finalized');
-    require(address(this).balance >= liquidityShare, 'Insufficient Balance');
-    require(getIDOContractTokenBalance() >= lpTokenShare, 'Insufficient Tokens');
+  function createPair( ) internal {
     transferredToLP = true;
-    _router.addLiquidityETH(address(token), lpTokenShare, lpTokenShare, liquidityShare, _to, block.timestamp);
+    IRouter _router = IRouter( PancakeRouter );
+    _router;
+    _router.addLiquidityETH{ value: liquidityShare }(address(token), lpTokenShare, lpTokenShare, liquidityShare, address(this), block.timestamp + 120 seconds );
     stage = SaleStage.COMPLETED;
+    IPancakeFactory factory = IPancakeFactory(PancakeFactory);
+    pairaddress = factory.getPair( WBNB_Address , address(token) );
+    emit PairCreated ( pairaddress, WBNB_Address , address(token) );
   }
-
-  function sendLP() public onlyManagers {
-    require(stage == SaleStage.FINALIZED, 'Not Finalized');
-    transferredToLP = true;
-    token.transfer( lp, lpTokenShare );  
-    _sendValue(payable(lp), liquidityShare);
-      
-      
-  }
-
-
+  
+ 
 
   /**
   * ISSUER FUNCTIONS
@@ -724,26 +728,20 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   // issuer can withdraw if the holders can refund
   function issuerTokenRefund() public onlyIssuer {
     require( canRefund && !canClaim );
-    token.safeTransfer(msg.sender, getIDOContractTokenBalance());
+    token.safeTransfer(msg.sender, token.balanceOf(address(this)));
   }
 
   // issuer can claim the bnb/eth after a year
-  function issuerWithdraw() public onlyIssuer {
-    // once the issuer can withdraw their 37% share
-    if (!issuerWithdrawn && issuerShare > 0 && liquidityShare > 0 && lpTokenShare > 0) {
-      _sendValue(payable(issuer), issuerShare);
-      issuerWithdrawn = true;
-    }
+ 
+  function issuerWithdrawLPTokens() public onlyIssuer {
+     issuerWithdrawn = true;
+     require ( block.timestamp > issuerLock );
+     IToken _lptokens = IToken( pairaddress );
+     _lptokens.transfer ( issuer, _lptokens.balanceOf ( address(this )));
+    
   }
 
-  // burn tokens
-  function issuerBurn() public onlyManagers {
-    require(claimed >= tokens && transferredToLP, 'Cannot Burn Token until all Claimed < Claimed');
-    require ( canClaim );
-    
-    token.transfer ( msg.sender , getIDOContractTokenBalance() );
-    token.burn( getIDOContractTokenBalance() );
-  }
+  
 
   function _sendValue(address payable recipient, uint256 amount) internal {
     require(address(this).balance >= amount, 'Insufficient Balance');
@@ -758,7 +756,7 @@ contract IDOManager is Ownable {
   using SafeERC20 for IToken;
   using SafeMath for uint256;
 
-  event ContractCreated(address indexed);
+  event ContractCreated(address indexed, string indexed _idoname );
 
   address public manager;
   address[] public team;
@@ -766,7 +764,7 @@ contract IDOManager is Ownable {
   bool public tokensSet;
   bool public teamSet;
 
-  address public lpaddress;
+  
   IToken public lpToken;
   IToken public tierToken;
   uint8 public teamPerc = 5;
@@ -803,27 +801,27 @@ contract IDOManager is Ownable {
 
   constructor() {
     minimumLP = 46000000000000000000;
-    lpaddress = 0x1ef932e9574542BC2730c6DC5Fa0003023c62b5e;
-    tierToken = IToken(0xda8336cc6A4C37e69d539BFA5Da1B3499f376162);
-    lpToken = IToken(0x451f70056FfdCBe4F4Db04d717DAE818054C0688);
+   
+    tierToken = IToken(0xda8336cc6A4C37e69d539BFA5Da1B3499f376162); // change to VLT token on mainnet
+    lpToken = IToken(0x451f70056FfdCBe4F4Db04d717DAE818054C0688); // change to LP token for VLT/BNB on mainnet
     tokensSet = true;
-    team = [0x0509A3053C83F55c88DBc726eb29A19972f29A36,0xf2b90042164e84A4f9599c8948d63A8DED7d29c1];
+    team = [0x0509A3053C83F55c88DBc726eb29A19972f29A36,0xf2b90042164e84A4f9599c8948d63A8DED7d29c1]; 
     teamCount = team.length;
     teamSet = true;
-    minimumLockTime = 3 minutes;
+    minimumLockTime = 3 minutes; // change this to 96hours
   }
 
   // deploy the ido contract
   function deployIDO(string memory _name, address _issuer, address _manager, uint256 _rate, uint256 _baseAllocation, IToken _idotoken, uint256 _minimumPurchase, uint8 _version) public onlyTeam returns(address) {
     require ( tokensSet && teamSet );
-    IDOCrowdsale newIDO = new IDOCrowdsale(_issuer, _manager, _rate , tierToken, lpToken, lpaddress, _baseAllocation*1000000000000000000, _idotoken, _minimumPurchase  );
+    IDOCrowdsale newIDO = new IDOCrowdsale(_issuer, _manager, _rate , tierToken, lpToken,  _baseAllocation*1000000000000000000, _idotoken, _minimumPurchase  );
 
     newIDO.setManager(manager, true);
     newIDO.setDist(teamPerc, liquidityPerc, issuerPerc, tokenWeight);
     newIDO.addTeam(team);
 
     address _newIDOAddress = address(newIDO);
-    emit ContractCreated(_newIDOAddress);
+    emit ContractCreated(_newIDOAddress, _name);
     contracts[_newIDOAddress] = ContractDetails(_name, _issuer, _version, _manager, _rate, _baseAllocation, address(_idotoken), _minimumPurchase );
     contractAddresses[contractCount] = _newIDOAddress;
     contractCount++;
@@ -834,20 +832,11 @@ contract IDOManager is Ownable {
   // set the ido sale setting
 
 
-  function setIDOSetting(IIDOCrowdsale _contract, IToken _token, uint256 _rate, address _issuer, address _lp) public onlyOwner {
-    _contract.setSetting(_token, tierToken, lpToken, _rate, _issuer, _lp);
+  function setIDOSetting(IIDOCrowdsale _contract, IToken _token, uint256 _rate, address _issuer) public onlyOwner {
+    _contract.setSetting(_token, tierToken, lpToken, _rate, _issuer);
   }
 
-  function setTokensAndLp(IToken _tierToken, IToken _lpToken, address _lpaddress) public onlyTeam {
-    tierToken = _tierToken;
-    lpToken = _lpToken;
-    lpaddress = _lpaddress;
-    tokensSet = true;
-  }
-
-
-
-  // set the distribution percentage
+ // set the distribution percentage
   function setDistribution(IIDOCrowdsale _contract, uint8 _teamPerc, uint8 _liquidityPerc, uint8 _issuerPerc, uint8 _tokenWeight) public onlyOwner {
     _contract.setDist(_teamPerc, _liquidityPerc, _issuerPerc, _tokenWeight);
   }
@@ -872,9 +861,7 @@ contract IDOManager is Ownable {
   }
 
  function setMinimumLPVLTLockTime ( uint256 _minimumLockTime ) public onlyTeam {
-     
      minimumLockTime = _minimumLockTime;
-     
  }
 
   function setMinimumLP ( uint256 _minLP ) public onlyTeam {
