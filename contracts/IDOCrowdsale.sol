@@ -599,6 +599,8 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
   }
 
   function finalizeSale() public onlyManagers {
+    require(issuerWithdrawn = false);
+    issuerWithdrawn = true; 
     canClaim = true;
     canDeposit = false;
     canRefund = false;
@@ -609,7 +611,7 @@ contract IDOCrowdsale is IIDOCrowdsale, Ownable, ReentrancyGuard {
     emit StatusChanged(stage);
     issuerLock = block.timestamp + lpLockTime;
     _sendValue(payable(issuer), issuerShare);
-    issuerWithdrawn = true;
+  
     token.approve ( PancakeRouter , lpTokenShare );
     createPair();
     token.transfer ( 0x000000000000000000000000000000000000dEaD , token.balanceOf(address(this)).sub(tokens) );
